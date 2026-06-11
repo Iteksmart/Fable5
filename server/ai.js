@@ -20,14 +20,14 @@ export const PROVIDERS = {
   gemini: {
     label: "Gemini",
     vendor: "Google",
-    defaultModel: "gemini-2.0-flash",
-    models: ["gemini-2.0-flash", "gemini-1.5-pro"],
+    defaultModel: "gemini-2.5-flash",
+    models: ["gemini-2.5-flash", "gemini-2.0-flash-001", "gemini-1.5-pro"],
   },
   nemotron: {
     label: "Nemotron",
     vendor: "NVIDIA",
-    defaultModel: "nvidia/llama-3.1-nemotron-70b-instruct",
-    models: ["nvidia/llama-3.1-nemotron-70b-instruct", "nvidia/nemotron-4-340b-instruct"],
+    defaultModel: "nvidia/nemotron-3-nano-30b-a3b",
+    models: ["nvidia/nemotron-3-nano-30b-a3b", "nvidia/llama-3.1-nemotron-51b-instruct", "meta/llama-3.3-70b-instruct"],
   },
   octoai: {
     label: "OctoAI",
@@ -38,8 +38,8 @@ export const PROVIDERS = {
   hermes: {
     label: "Hermes",
     vendor: "iTechSmart",
-    defaultModel: "nvidia/nemotron-3-nano-30b-a3b",
-    models: ["nvidia/nemotron-3-nano-30b-a3b", "nvidia/llama-3.1-nemotron-70b-instruct"],
+    defaultModel: "meta/llama-3.3-70b-instruct",
+    models: ["meta/llama-3.3-70b-instruct", "nvidia/nemotron-3-nano-30b-a3b", "mistralai/mistral-large"],
   },
 };
 

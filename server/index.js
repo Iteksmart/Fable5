@@ -44,8 +44,8 @@ app.get("/api/health", (req, res) =>
   res.json({ ok: true, ts: Date.now(), auth: !!AUTH_TOKEN(), version: 1 })
 );
 app.get("/api/metrics", (req, res) => res.json(getMetrics()));
-app.get("/api/services", async (req, res) => res.json(await probeServices()));
-app.get("/api/tunnel", async (req, res) => res.json(await tunnelStatus()));
+app.get("/api/services", async (req, res) => { try { res.json(await probeServices()); } catch(e) { res.status(500).json({error: e.message}); } });
+app.get("/api/tunnel", async (req, res) => { try { res.json(await tunnelStatus()); } catch(e) { res.status(500).json({error: e.message}); } });
 
 app.get("/api/status/live", async (req, res) => {
   try {
