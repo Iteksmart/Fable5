@@ -51,7 +51,7 @@ const DEFAULT_SERVICES = [
   { id: "api", name: "iTechSmart API", url: "https://api.itechsmart.dev/v1/status/live" },
   { id: "dash", name: "Legacy Dashboard", url: "http://127.0.0.1:8210", internal: true },
   { id: "noc", name: "NOC Service", url: "http://127.0.0.1:8210/noc", internal: true },
-  { id: "hermes", name: "Hermes SEMI_AUTO", url: "http://localhost:8089", internal: true },
+  { id: "hermes", name: "Hermes (NGC)", url: "http://localhost:8444/api/health", internal: true },
 ];
 
 function services() {

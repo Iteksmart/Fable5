@@ -37,9 +37,9 @@ export const PROVIDERS = {
   },
   hermes: {
     label: "Hermes",
-    vendor: "iTechSmart SEMI_AUTO",
-    defaultModel: "hermes-semi-auto",
-    models: ["hermes-semi-auto"],
+    vendor: "iTechSmart",
+    defaultModel: "nvidia/nemotron-3-nano-30b-a3b",
+    models: ["nvidia/nemotron-3-nano-30b-a3b", "nvidia/llama-3.1-nemotron-70b-instruct"],
   },
 };
 
