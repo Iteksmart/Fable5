@@ -103,7 +103,7 @@ if (health.status === 200) {
 // --- adjacent services (informational) ---
 for (const [name, url] of [
   ["Legacy dashboard :8210", "http://127.0.0.1:8210"],
-  ["Hermes SEMI_AUTO :8089", "http://localhost:8089"],
+  ["Hermes (NGC) :8444", "http://localhost:8444/api/health"],
 ]) {
   const r = await get(url);
   report(name, r.status > 0 && r.status < 500, r.status ? `HTTP ${r.status}` : r.text.slice(0, 60), { warnOnly: true });

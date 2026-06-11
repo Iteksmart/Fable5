@@ -1,6 +1,11 @@
 node_modules/
 dist/
 server/data/db.json
+# never commit credentials — keys live in ~/.secrets or the vault
 .env
+.env.*
+*.env
+.secrets
+.secrets.*
 *.local
 .DS_Store

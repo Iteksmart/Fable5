@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SECRETS_FILE = process.env.SECRETS_FILE || path.join(os.homedir(), ".secrets");
 const VAULT_FILE = process.env.VAULT_FILE || "/opt/itechsmart/vault/secrets.json";
@@ -40,11 +41,31 @@ function loadFiles() {
   }
   try {
     if (fs.existsSync(SECRETS_FILE)) {
-      Object.assign(fileSecrets, parseDotenv(fs.readFileSync(SECRETS_FILE, "utf8")));
+      const stat = fs.statSync(SECRETS_FILE);
+      if (stat.isDirectory()) {
+        // ~/.secrets/ as a directory of dotenv files (e.g. ag2.env)
+        for (const f of fs.readdirSync(SECRETS_FILE)) {
+          const p = path.join(SECRETS_FILE, f);
+          try {
+            if (fs.statSync(p).isFile()) {
+              Object.assign(fileSecrets, parseDotenv(fs.readFileSync(p, "utf8")));
+            }
+          } catch { /* unreadable entry — skip */ }
+        }
+      } else {
+        Object.assign(fileSecrets, parseDotenv(fs.readFileSync(SECRETS_FILE, "utf8")));
+      }
     }
   } catch (e) {
     console.warn(`[secrets] could not read secrets file ${SECRETS_FILE}: ${e.message}`);
   }
+  // optional .env.production next to the app (written during server setup)
+  try {
+    const envProd = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env.production");
+    if (fs.existsSync(envProd)) {
+      Object.assign(fileSecrets, parseDotenv(fs.readFileSync(envProd, "utf8")));
+    }
+  } catch { /* optional */ }
   return fileSecrets;
 }
 
@@ -64,12 +85,14 @@ export function reloadSecrets() {
 
 // Which providers have credentials configured (never returns the keys themselves).
 export function providerKeyStatus() {
+  const ngc = !!getSecret("NGC_API_KEY", "NVIDIA_API_KEY", "NEMOTRON_API_KEY");
   return {
     claude: !!getSecret("ANTHROPIC_API_KEY", "CLAUDE_API_KEY"),
     codex: !!getSecret("OPENAI_API_KEY"),
     gemini: !!getSecret("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-    nemotron: !!getSecret("NVIDIA_API_KEY", "NEMOTRON_API_KEY"),
+    nemotron: ngc,
     octoai: !!getSecret("OCTOAI_API_KEY", "OCTOAI_TOKEN"),
-    hermes: true, // local service, no key needed
+    // hermes serves via the local gateway when HERMES_URL is set, otherwise NGC
+    hermes: !!process.env.HERMES_URL || ngc,
   };
 }

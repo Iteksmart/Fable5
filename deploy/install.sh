@@ -41,6 +41,7 @@ User=${RUN_USER}
 WorkingDirectory=${APP_DIR}
 Environment=NODE_ENV=production
 Environment=PORT=${PORT}
+EnvironmentFile=-${APP_DIR}/.env.production
 ExecStart=$(command -v node) ${APP_DIR}/server/index.js
 Restart=always
 RestartSec=3

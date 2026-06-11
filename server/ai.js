@@ -43,7 +43,10 @@ export const PROVIDERS = {
   },
 };
 
-const HERMES_URL = process.env.HERMES_URL || "http://localhost:8089";
+// Local Hermes gateway. When unset, hermes requests fall back to NVIDIA NGC,
+// which serves the same models.
+const HERMES_URL = process.env.HERMES_URL || "";
+const NGC_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
 function sse(res, obj) {
   res.write(`data: ${JSON.stringify(obj)}\n\n`);
@@ -165,12 +168,9 @@ export async function handleChat(req, res) {
         break;
       }
       case "nemotron": {
-        const key = getSecret("NVIDIA_API_KEY", "NEMOTRON_API_KEY");
-        if (!key) throw new Error("NVIDIA_API_KEY not found in env/.secrets/vault");
-        await streamOpenAICompatible(res, {
-          url: "https://integrate.api.nvidia.com/v1/chat/completions",
-          key, model: m, messages, system,
-        });
+        const key = getSecret("NGC_API_KEY", "NVIDIA_API_KEY", "NEMOTRON_API_KEY");
+        if (!key) throw new Error("NGC_API_KEY / NVIDIA_API_KEY not found in env/.secrets/vault");
+        await streamOpenAICompatible(res, { url: NGC_URL, key, model: m, messages, system });
         break;
       }
       case "octoai": {
@@ -183,10 +183,16 @@ export async function handleChat(req, res) {
         break;
       }
       case "hermes": {
-        await streamOpenAICompatible(res, {
-          url: `${HERMES_URL}/v1/chat/completions`,
-          key: getSecret("HERMES_API_KEY"), model: m, messages, system,
-        });
+        if (HERMES_URL) {
+          await streamOpenAICompatible(res, {
+            url: `${HERMES_URL}/v1/chat/completions`,
+            key: getSecret("HERMES_API_KEY"), model: m, messages, system,
+          });
+        } else {
+          const key = getSecret("NGC_API_KEY", "NVIDIA_API_KEY", "NEMOTRON_API_KEY");
+          if (!key) throw new Error("Hermes gateway offline (HERMES_URL unset) and no NGC_API_KEY for fallback");
+          await streamOpenAICompatible(res, { url: NGC_URL, key, model: m, messages, system });
+        }
         break;
       }
     }
