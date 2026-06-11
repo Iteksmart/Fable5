@@ -30,20 +30,42 @@ npm run build
 PORT=8443 npm start
 ```
 
-## Deploy on the OVH server
+## Deploy on the OVH server (one command)
 
 ```bash
 ssh ssh.itechsmart.dev          # via CF Zero Trust tunnel
-git clone <this repo> && cd Fable5
-npm install && npm run build
-PORT=8443 npm start             # systemd unit recommended
-# expose through the existing tunnel:
-cloudflared tunnel route dns 3525b90f mission.itechsmart.dev
-# then add an ingress rule: mission.itechsmart.dev -> http://localhost:8443
+git clone -b claude/funny-tesla-533clw https://github.com/Iteksmart/Fable5.git mission-control
+cd mission-control
+sudo bash deploy/install.sh     # builds, installs systemd unit, starts, audits
 ```
 
-> ⚠️ The terminal bridge and AI endpoints give full shell/API access — only expose
-> the dashboard behind Cloudflare Access (Zero Trust policy), never on a public port.
+The installer ends by running `npm run doctor`, a full production audit (build, API,
+SPA routes, WebSocket terminal round-trip, keys, tunnel, adjacent services). It refuses
+to declare success unless every hard check passes. Re-run any time with `npm run doctor`.
+
+Then route the hostname through the existing tunnel `3525b90f` — see
+[`deploy/cloudflared-ingress.example.yml`](deploy/cloudflared-ingress.example.yml):
+
+```bash
+cloudflared tunnel route dns 3525b90f mission.itechsmart.dev
+# add to /etc/cloudflared/config.yml BEFORE the catch-all:
+#   - hostname: mission.itechsmart.dev
+#     service: http://localhost:8443
+sudo systemctl restart cloudflared
+```
+
+> ⚠️ The terminal bridge and AI endpoints give full shell/API access. Put
+> `mission.itechsmart.dev` behind a **Cloudflare Access** policy, and optionally set
+> `MC_AUTH_TOKEN` in `~/.secrets` for an extra in-app token gate (the UI will prompt).
+
+### If a page like `/orchestrator` doesn't load
+
+1. `npm run doctor` on the server — it pinpoints the failure.
+2. `systemctl status mission-control` / `journalctl -u mission-control -n 50`.
+3. Confirm the tunnel ingress points at `http://localhost:8443` (not the legacy `:8210`
+   dashboard — that service has no `/orchestrator` route).
+4. Cloudflare error 530/502 = tunnel can't reach the service; 404 from another app =
+   wrong ingress target; Access login page = expected, authenticate.
 
 ## API keys
 

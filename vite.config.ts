@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    // allow access through the CF tunnel hostname if someone runs dev mode remotely
+    allowedHosts: [".itechsmart.dev"],
     proxy: {
       "/api": "http://127.0.0.1:8443",
       "/ws": { target: "ws://127.0.0.1:8443", ws: true },

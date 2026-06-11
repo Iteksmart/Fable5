@@ -14,8 +14,8 @@ import {
   CloudCog,
 } from "lucide-react";
 import clsx from "clsx";
-import { Background, StatusDot } from "./ui";
-import { api, type TunnelInfo } from "../lib/api";
+import { Background, NeonButton, StatusDot } from "./ui";
+import { api, getToken, setToken, type TunnelInfo } from "../lib/api";
 
 const NAV = [
   { to: "/", label: "Mission Control", icon: LayoutDashboard, kbd: "1" },
@@ -161,6 +161,61 @@ export default function Layout() {
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <AuthGate />
+    </div>
+  );
+}
+
+/* ---------- auth gate (shown only when the server returns 401) ---------- */
+function AuthGate() {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("mc:unauthorized", show);
+    return () => window.removeEventListener("mc:unauthorized", show);
+  }, []);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="glass w-[400px] rounded-2xl p-6"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/25 to-purple-600/25 ring-1 ring-cyan-400/30">
+            <KeyRound size={18} className="text-cyan-300" />
+          </div>
+          <div>
+            <div className="text-base font-bold text-white">Access token required</div>
+            <div className="text-xs text-slate-400">
+              This deployment has <code className="font-mono">MC_AUTH_TOKEN</code> enabled.
+            </div>
+          </div>
+        </div>
+        <input
+          autoFocus
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && value && (setToken(value), location.reload())}
+          placeholder="Paste token…"
+          className="glass mt-4 w-full rounded-xl px-3 py-2.5 font-mono text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/40"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          {getToken() && (
+            <NeonButton variant="ghost" onClick={() => { setToken(""); location.reload(); }}>
+              Clear saved token
+            </NeonButton>
+          )}
+          <NeonButton disabled={!value} onClick={() => { setToken(value); location.reload(); }}>
+            Unlock
+          </NeonButton>
+        </div>
+      </motion.div>
     </div>
   );
 }

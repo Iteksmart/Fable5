@@ -16,6 +16,10 @@ try {
   console.warn("[term] node-pty unavailable — falling back to pipe mode (no TTY niceties)");
 }
 
+export function ptyAvailable() {
+  return !!pty;
+}
+
 const SSH_TARGET = process.env.SSH_TARGET || "ssh.itechsmart.dev";
 const SSH_USER = process.env.SSH_USER || "";
 const SHELL = process.env.SHELL_BIN || process.env.SHELL || "bash";

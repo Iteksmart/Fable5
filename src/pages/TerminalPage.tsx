@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { GlassCard, NeonButton } from "../components/ui";
+import { getToken } from "../lib/api";
 
 type Mode = "ssh" | "local";
 type ConnState = "idle" | "connecting" | "connected" | "closed";
@@ -90,8 +91,9 @@ export default function TerminalPage() {
     term.writeln("\x1b[90mestablishing session…\x1b[0m\r\n");
 
     const proto = location.protocol === "https:" ? "wss" : "ws";
+    const tok = getToken();
     const ws = new WebSocket(
-      `${proto}://${location.host}/ws/term?mode=${mode}&cols=${term.cols}&rows=${term.rows}`
+      `${proto}://${location.host}/ws/term?mode=${mode}&cols=${term.cols}&rows=${term.rows}${tok ? `&token=${encodeURIComponent(tok)}` : ""}`
     );
     wsRef.current = ws;
 

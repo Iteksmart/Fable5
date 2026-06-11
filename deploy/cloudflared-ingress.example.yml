@@ -1,0 +1,22 @@
+# Example /etc/cloudflared/config.yml for tunnel 3525b90f.
+# Add the mission.itechsmart.dev rule BEFORE the catch-all `http_status:404`.
+# WebSockets (the dashboard terminal) work through cloudflared automatically.
+tunnel: 3525b90f
+credentials-file: /etc/cloudflared/3525b90f.json
+
+ingress:
+  - hostname: ssh.itechsmart.dev
+    service: ssh://localhost:22
+  - hostname: mission.itechsmart.dev
+    service: http://localhost:8443
+  - hostname: api.itechsmart.dev
+    service: http://localhost:8080   # adjust to your existing API port
+  - service: http_status:404
+
+# After editing:
+#   cloudflared tunnel route dns 3525b90f mission.itechsmart.dev
+#   sudo systemctl restart cloudflared
+#
+# REQUIRED: add a Cloudflare Access application for mission.itechsmart.dev
+# (dash.teams.cloudflare.com -> Access -> Applications). The dashboard embeds
+# a real shell; it must sit behind an Access policy.

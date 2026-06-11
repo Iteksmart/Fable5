@@ -86,11 +86,30 @@ export interface ChatMessage {
   content: string;
 }
 
+/* ---------- optional auth token (MC_AUTH_TOKEN on the server) ---------- */
+const TOKEN_KEY = "mc_token";
+export const getToken = () => localStorage.getItem(TOKEN_KEY) ?? "";
+export const setToken = (t: string) =>
+  t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
+
+function authHeaders(): Record<string, string> {
+  const t = getToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
+function onUnauthorized() {
+  window.dispatchEvent(new CustomEvent("mc:unauthorized"));
+}
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: { "Content-Type": "application/json", ...authHeaders(), ...init?.headers },
   });
+  if (r.status === 401) {
+    onUnauthorized();
+    throw new Error("401 unauthorized");
+  }
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   return r.json();
 }
@@ -127,10 +146,14 @@ export async function streamChat(
 ): Promise<{ ms?: number; error?: string }> {
   const r = await fetch("/api/ai/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(opts),
     signal,
   });
+  if (r.status === 401) {
+    onUnauthorized();
+    return { error: "unauthorized" };
+  }
   if (!r.body) return { error: "no response body" };
   const reader = r.body.getReader();
   const dec = new TextDecoder();
