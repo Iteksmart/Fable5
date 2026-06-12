@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   BookOpenText,
   Check,
+  Clock,
   Copy,
   FolderKey,
   KeyRound,
@@ -28,12 +30,14 @@ export default function Vault() {
   const [keys, setKeys] = useState<Record<ProviderId, boolean> | null>(null);
   const [reloading, setReloading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [secretsAge, setSecretsAge] = useState<{secrets:{name:string;mtime:string;age_days:number;stale:boolean}[];stale_count:number;total:number}|null>(null);
 
   useEffect(() => {
     api.providers().then((p) => {
       setProviders(p.providers);
       setKeys(p.keys);
     }).catch(() => {});
+    fetch("/api/secrets-age").then((r)=>r.json()).then(setSecretsAge).catch(()=>{});
   }, []);
 
   async function reload() {
@@ -180,6 +184,28 @@ export default function Vault() {
           ))}
         </div>
       </GlassCard>
+
+      {/* M09 Secrets rotation age */}
+      {secretsAge && (
+        <GlassCard className="p-5" delay={0.4}>
+          <SectionTitle right={secretsAge.stale_count > 0 ? <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">{secretsAge.stale_count} stale</span> : <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">all fresh</span>}>
+            <span className="inline-flex items-center gap-2"><Clock size={13} /> Secret Rotation Age</span>
+          </SectionTitle>
+          <p className="mb-3 text-[11px] text-slate-500">File mtime only · values never read · stale threshold: 90 days</p>
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            {secretsAge.secrets.map((s) => (
+              <div key={s.name} className="flex items-center gap-3 rounded-lg px-3 py-1.5 hover:bg-white/[0.02]">
+                {s.stale
+                  ? <AlertTriangle size={12} className="shrink-0 text-amber-400" />
+                  : <ShieldCheck size={12} className="shrink-0 text-emerald-400" />}
+                <span className="flex-1 truncate font-mono text-[11px] text-slate-200">{s.name}</span>
+                <span className={s.stale ? "text-[11px] text-amber-300" : "text-[11px] text-slate-400"}>{s.age_days}d ago</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
     </div>
   );
 }

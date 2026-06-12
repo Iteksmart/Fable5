@@ -6,6 +6,11 @@ import TerminalPage from "./pages/TerminalPage";
 import Noc from "./pages/Noc";
 import Business from "./pages/Business";
 import Vault from "./pages/Vault";
+import Revenue from "./pages/Revenue";
+import Audit from "./pages/Audit";
+import Pipeline from "./pages/Pipeline";
+import Fundraise from "./pages/Fundraise";
+import Compliance from "./pages/Compliance";
 
 export default function App() {
   return (
@@ -17,6 +22,11 @@ export default function App() {
         <Route path="/noc" element={<Noc />} />
         <Route path="/business" element={<Business />} />
         <Route path="/vault" element={<Vault />} />
+        <Route path="/revenue" element={<Revenue />} />
+        <Route path="/audit" element={<Audit />} />
+        <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/fundraise" element={<Fundraise />} />
+        <Route path="/compliance" element={<Compliance />} />
       </Route>
     </Routes>
   );

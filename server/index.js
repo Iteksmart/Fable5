@@ -14,6 +14,7 @@ import * as store from "./store.js";
 import { getMetrics, probeServices, tunnelStatus } from "./metrics.js";
 import { attachTerminal, ptyAvailable } from "./term.js";
 
+import { registerLiveRoutes } from "./live_routes.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 8443;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -107,6 +108,9 @@ for (const col of COLLECTIONS) {
     res.json({ deleted: store.remove(col, req.params.id) });
   });
 }
+
+// ---------- live data (Sprint 7) ----------
+registerLiveRoutes(app, getSecret);
 
 // ---------- static UI (production) ----------
 const dist = path.join(__dirname, "..", "dist");

@@ -27,6 +27,7 @@ import {
   Sparkline,
   StatusDot,
 } from "../components/ui";
+import { Lock, ReceiptText } from "lucide-react";
 import {
   api,
   fmtUptime,
@@ -55,6 +56,7 @@ export default function MissionControl() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, boolean> | null>(null);
+  const [prooflink, setProoflink] = useState<{total:number;chain_breaks:number;action:number;last5:{hash:string;category:string;ts:string;actor:string}[]}|null>(null);
 
   useEffect(() => {
     const loadFast = () => {
@@ -66,8 +68,10 @@ export default function MissionControl() {
     api.list<Ticket>("tickets").then(setTickets).catch(() => {});
     api.list<Activity>("activity").then(setActivity).catch(() => {});
     api.providers().then((p) => setAiKeys(p.keys)).catch(() => {});
+    fetch("/api/prooflink/live").then((r)=>r.json()).then(setProoflink).catch(()=>{});
     const t = setInterval(loadFast, 10000);
-    return () => clearInterval(t);
+    const t3 = setInterval(()=>fetch("/api/prooflink/live").then((r)=>r.json()).then(setProoflink).catch(()=>{}),15000);
+    return () => { clearInterval(t); clearInterval(t3); };
   }, []);
 
   const mrr = useMemo(() => clients.reduce((s, c) => s + c.mrr, 0), [clients]);
@@ -118,6 +122,38 @@ export default function MissionControl() {
           </div>
         </div>
       </GlassCard>
+
+
+      {/* ProofLink Hero */}
+      {prooflink && (
+        <GlassCard hover={false} className="relative overflow-hidden border border-emerald-400/20 p-5" delay={0.02}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 ring-1 ring-emerald-400/30">
+                <Lock size={18} className="text-emerald-300" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-extrabold text-white">{prooflink.total.toLocaleString()}</span>
+                  <span className="text-sm text-slate-400">ProofLink Receipts</span>
+                  <span className={prooflink.chain_breaks === 0 ? "rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300" : "rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-300"}>
+                    {prooflink.chain_breaks === 0 ? "0 chain breaks" : prooflink.chain_breaks + " BREAKS"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">{prooflink.action.toLocaleString()} action receipts · hash-chained · immutable</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {prooflink.last5.map((r) => (
+                <div key={r.hash} className="glass rounded-lg px-2.5 py-1.5 text-[10px]">
+                  <div className="font-mono text-cyan-300">{r.hash}</div>
+                  <div className="text-slate-500 truncate max-w-[120px]">{r.category}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {/* stat row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

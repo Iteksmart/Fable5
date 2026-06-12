@@ -2,15 +2,20 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Activity,
+  AlertTriangle,
+  Archive,
+  Bell,
   Cloud,
   Cpu,
   Globe,
   HardDrive,
+  Lock,
   Network,
   Radar,
   RefreshCw,
   Server,
   Shield,
+  ShieldAlert,
 } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -35,6 +40,9 @@ export default function Noc() {
   const [tunnel, setTunnel] = useState<TunnelInfo | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSweep, setLastSweep] = useState<Date | null>(null);
+  const [alerts, setAlerts] = useState<{wazuh:any[];itsm:any[];total:number;kill_switch:any}|null>(null);
+  const [backup, setBackup] = useState<any>(null);
+  const [certs, setCerts] = useState<{certs:any[];cached_at:string}|null>(null);
 
   const sweep = async () => {
     setRefreshing(true);
@@ -48,6 +56,8 @@ export default function Noc() {
       setServices(s);
       if (t) setTunnel(t);
       setLastSweep(new Date());
+      fetch("/api/alerts").then((r)=>r.json()).then(setAlerts).catch(()=>{});
+      fetch("/api/backup").then((r)=>r.json()).then(setBackup).catch(()=>{});
     } finally {
       setRefreshing(false);
     }
@@ -55,6 +65,7 @@ export default function Noc() {
 
   useEffect(() => {
     sweep();
+    fetch("/api/certs").then((r)=>r.json()).then(setCerts).catch(()=>{});
     const t = setInterval(sweep, 15000);
     return () => clearInterval(t);
   }, []);
@@ -205,6 +216,80 @@ export default function Noc() {
           </div>
         </GlassCard>
       </div>
+
+      {/* M05 Alerts panel */}
+      {alerts && (
+        <GlassCard className="p-5" delay={0.3}>
+          <SectionTitle right={<span className="text-[11px] text-slate-400">{alerts.total} active</span>}>
+            <span className="inline-flex items-center gap-2"><Bell size={13} /> Active Alerts</span>
+          </SectionTitle>
+          {alerts.kill_switch && (
+            <div className={alerts.kill_switch.engaged ? "mb-3 flex items-center gap-2 rounded-xl bg-rose-500/20 px-3 py-2 text-sm text-rose-300" : "mb-3 flex items-center gap-2 rounded-xl bg-emerald-500/15 px-3 py-2 text-sm text-emerald-300"}>
+              <Lock size={14} />
+              <span>Kill switch: {alerts.kill_switch.engaged ? "ENGAGED" : "disengaged"}</span>
+            </div>
+          )}
+          {alerts.total === 0 && <div className="py-4 text-center text-sm text-slate-500">No active alerts</div>}
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {[...alerts.wazuh, ...alerts.itsm].slice(0, 15).map((a: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg px-3 py-2 hover:bg-white/[0.03]">
+                <AlertTriangle size={13} className={a.level === "critical" || a.level >= 12 ? "mt-0.5 shrink-0 text-rose-400" : "mt-0.5 shrink-0 text-amber-400"} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm leading-snug text-slate-200 truncate">{a.description}</div>
+                  <div className="mt-0.5 text-[10px] text-slate-500">{a.source} · {a.ref || a.agent || ""} · {new Date(a.ts).toLocaleString()}</div>
+                </div>
+                {a.sla === "breached" && <span className="shrink-0 rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] text-rose-300">SLA BREACHED</span>}
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
+      {/* M07 Backup + M08 Certs */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {backup && (
+          <GlassCard className="p-5" delay={0.35}>
+            <SectionTitle right={backup.missing ? <span className="text-[11px] text-amber-400">no dir</span> : <span className={backup.healthy ? "text-[11px] text-emerald-400" : "text-[11px] text-rose-400"}>{backup.healthy ? "healthy" : "stale"}</span>}>
+              <span className="inline-flex items-center gap-2"><Archive size={13} /> Backup / DR</span>
+            </SectionTitle>
+            {backup.missing
+              ? <div className="mt-2 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-300">{backup.message}</div>
+              : (
+                <div className="mt-2 space-y-1.5">
+                  {(backup.files || []).slice(0, 8).map((f: any) => (
+                    <div key={f.name} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-white/[0.02]">
+                      <span className={f.healthy ? "h-2 w-2 rounded-full bg-emerald-400 shrink-0" : "h-2 w-2 rounded-full bg-rose-400 shrink-0"} />
+                      <span className="flex-1 truncate font-mono text-[11px] text-slate-200">{f.name}</span>
+                      <span className="text-[11px] text-slate-400">{f.age_hours < 1 ? "<1h ago" : f.age_hours < 24 ? f.age_hours.toFixed(0) + "h ago" : (f.age_hours/24).toFixed(0) + "d ago"}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+          </GlassCard>
+        )}
+
+        {certs && (
+          <GlassCard className="p-5" delay={0.4}>
+            <SectionTitle right={<span className="text-[10px] text-slate-500">cached {new Date(certs.cached_at).toLocaleTimeString()}</span>}>
+              <span className="inline-flex items-center gap-2"><ShieldAlert size={13} /> TLS Cert Expiry</span>
+            </SectionTitle>
+            <div className="mt-2 space-y-1.5">
+              {certs.certs.map((c: any) => (
+                <div key={c.domain} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-white/[0.02]">
+                  <span className={c.status === "ok" ? "h-2 w-2 rounded-full bg-emerald-400 shrink-0" : c.status === "warning" ? "h-2 w-2 rounded-full bg-amber-400 shrink-0" : "h-2 w-2 rounded-full bg-rose-400 shrink-0"} />
+                  <span className="flex-1 truncate text-sm text-slate-200">{c.domain}</span>
+                  {c.daysLeft !== null
+                    ? <span className={c.daysLeft < 14 ? "text-[11px] font-bold text-rose-300" : c.daysLeft < 30 ? "text-[11px] text-amber-300" : "text-[11px] text-emerald-300"}>{c.daysLeft}d</span>
+                    : <span className="text-[11px] text-slate-500">?</span>
+                  }
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+      </div>
+
     </div>
   );
 }
