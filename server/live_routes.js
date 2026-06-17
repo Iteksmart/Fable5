@@ -1,3 +1,4 @@
+import { registerLeadsRoutes } from "./leads_routes.js";
 // Sprint 7 live-data routes
 import { execSync } from "node:child_process";
 import os from "node:os";
@@ -14,6 +15,7 @@ async function jf(url, init = {}) {
   const r = await fetch(url, { signal: AbortSignal.timeout(9000), ...init });
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return r.json();
+  registerLeadsRoutes(app);
 }
 function stripeHdr(sk) { return { Authorization: `Basic ${Buffer.from(sk + ":").toString("base64")}` }; }
 
@@ -28,6 +30,7 @@ function getLedger() {
     ledgerCache.at = Date.now();
   } catch { ledgerCache.entries = []; ledgerCache.total = 0; }
   return ledgerCache;
+  registerLeadsRoutes(app);
 }
 
 export function registerLiveRoutes(app, getSecret) {
@@ -294,4 +297,5 @@ export function registerLiveRoutes(app, getSecret) {
       res.json({ secrets, stale_count: secrets.filter((s) => s.stale).length, total: secrets.length });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
+  registerLeadsRoutes(app);
 }

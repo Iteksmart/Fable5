@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
+  Target,
   LayoutDashboard,
   BrainCircuit,
   TerminalSquare,
@@ -19,6 +20,14 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
+  Monitor,
+  Lock,
+  Bot,
+  MessageSquare,
+  CheckSquare,
+  Wand2,
+  Settings,
+  Building2,
 } from "lucide-react";
 import clsx from "clsx";
 import { Background, NeonButton, StatusDot } from "./ui";
@@ -32,10 +41,19 @@ const NAV = [
   { to: "/business", label: "MSP Business", icon: Briefcase, kbd: "5" },
   { to: "/revenue", label: "Revenue", icon: DollarSign, kbd: "6" },
   { to: "/audit", label: "Audit", icon: ClipboardList, kbd: "7" },
+  { to: "/leads", label: "Leads & Pipeline", icon: Target, kbd: "L" },
   { to: "/pipeline", label: "Pipeline", icon: TrendingUp, kbd: "8" },
   { to: "/fundraise", label: "Fundraise", icon: Rocket, kbd: "9" },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, kbd: "0" },
   { to: "/vault", label: "Vault & Settings", icon: KeyRound, kbd: "-" },
+  { to: "/shield", label: "Shield", icon: Lock, kbd: "S" },
+  { to: "/devices", label: "Devices", icon: Monitor, kbd: "D" },
+  { to: "/tenants", label: "Tenants", icon: Building2, kbd: "T" },
+  { to: "/agents", label: "Agents", icon: Bot, kbd: "A" },
+  { to: "/comms", label: "Agent Comms", icon: MessageSquare, kbd: "C" },
+  { to: "/approvals", label: "Approvals", icon: CheckSquare, kbd: "P" },
+  { to: "/ai-studio", label: "AI Studio", icon: Wand2, kbd: "I" },
+  { to: "/admin", label: "Admin", icon: Settings, kbd: "G" },
 ];
 
 export default function Layout() {
