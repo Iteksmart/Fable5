@@ -105,3 +105,25 @@ body {
 *::-webkit-scrollbar-track { background: transparent; }
 
 .xterm .xterm-viewport { background: transparent !important; }
+
+/* ── Mission Control Integration Panels ────────────────────────────────────── */
+.integration-panels { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; }
+.int-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; }
+.int-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.int-scores { display: flex; gap: 24px; }
+.score-val { font-size: 1.4rem; font-weight: 800; color: #00D4FF; display: block; }
+.score-lbl { font-size: 0.7rem; color: rgba(255,255,255,0.45); }
+.deny-badge { display: inline-block; font-size: 0.7rem; background: rgba(255,75,75,0.1); color: #FF4B4B; border: 1px solid rgba(255,75,75,0.2); border-radius: 4px; padding: 2px 8px; margin: 2px; }
+.noc-integration-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.device-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-top: 20px; }
+.dp-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.dp-table th { text-align: left; color: rgba(255,255,255,0.4); padding: 6px; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; }
+.dp-table td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.status-dot.online { color: #00E5A0; } .status-dot.offline { color: #FF4B4B; }
+.patch-warn { color: #FFB800; } .patch-ok { color: #00E5A0; }
+.agent-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-top: 16px; }
+.model-tag, .collection-tag { display: inline-block; font-size: 0.7rem; font-family: monospace; background: rgba(0,212,255,0.08); color: #00D4FF; border: 1px solid rgba(0,212,255,0.2); border-radius: 4px; padding: 2px 8px; margin: 2px; }
+.gryph-sessions { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.gryph-row { display: flex; gap: 10px; align-items: center; font-size: 0.8rem; padding: 6px; background: rgba(255,255,255,0.02); border-radius: 6px; }
+.gryph-tool { color: #FFB800; font-weight: 700; width: 60px; }
+.gryph-session { flex: 1; font-family: monospace; font-size: 0.7rem; color: rgba(255,255,255,0.5); }

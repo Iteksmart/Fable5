@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -43,6 +43,8 @@ export default function Noc() {
   const [alerts, setAlerts] = useState<{wazuh:any[];itsm:any[];total:number;kill_switch:any}|null>(null);
   const [backup, setBackup] = useState<any>(null);
   const [certs, setCerts] = useState<{certs:any[];cached_at:string}|null>(null);
+  const [shuffleData, setShuffleData] = useState<any>(null);
+  const [nocAlertchain, setNocAlertchain] = useState<any>(null);
 
   const sweep = async () => {
     setRefreshing(true);
@@ -58,6 +60,8 @@ export default function Noc() {
       setLastSweep(new Date());
       fetch("/api/alerts").then((r)=>r.json()).then(setAlerts).catch(()=>{});
       fetch("/api/backup").then((r)=>r.json()).then(setBackup).catch(()=>{});
+      fetch("/api/integrations/shuffle/workflows").then((r)=>r.json()).then(setShuffleData).catch(()=>{});
+      fetch("/api/integrations/alertchain/decisions").then((r)=>r.json()).then(setNocAlertchain).catch(()=>{});
     } finally {
       setRefreshing(false);
     }
@@ -66,6 +70,8 @@ export default function Noc() {
   useEffect(() => {
     sweep();
     fetch("/api/certs").then((r)=>r.json()).then(setCerts).catch(()=>{});
+    fetch("/api/v1/integrations/shuffle").then((r)=>r.json()).then(setShuffleData).catch(()=>{});
+    fetch("/api/v1/integrations/alertchain").then((r)=>r.json()).then(setNocAlertchain).catch(()=>{});
     const t = setInterval(sweep, 15000);
     return () => clearInterval(t);
   }, []);
@@ -288,6 +294,48 @@ export default function Noc() {
             </div>
           </GlassCard>
         )}
+      </div>
+
+      {/* Shuffle SOAR + AlertChain */}
+      <div className="grid gap-4 md:grid-cols-2 mt-6">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-bold text-sm">Shuffle SOAR</span>
+            <a href="http://localhost:5001" target="_blank" rel="noopener"
+               className="text-xs text-cyan-400">Open</a>
+          </div>
+          <div className="flex gap-4 mb-3 text-sm">
+            <span><b className="text-white">{shuffleData?.total ?? 0}</b> <span className="text-white/40">workflows</span></span>
+            <span><b className="text-cyan-400">{shuffleData?.active ?? 0}</b> <span className="text-white/40">active</span></span>
+          </div>
+          <div className="space-y-1">
+            {(shuffleData?.workflows ?? []).slice(0, 5).map((w: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-white/5">
+                <span className={w.status === "running" ? "text-emerald-400" : "text-white/30"}>●</span>
+                <span className="flex-1 truncate">{w.name}</span>
+                <span className="text-white/30">{w.executions} runs</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-bold text-sm">Policy Gate (AlertChain)</span>
+            <a href="https://alertchain.itechsmart.dev" target="_blank" rel="noopener"
+               className="text-xs text-cyan-400">Open</a>
+          </div>
+          <div className="flex gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-black text-emerald-400">{nocAlertchain?.allowed ?? 0}</div>
+              <div className="text-xs text-white/40">Allowed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-black text-red-400">{nocAlertchain?.denied ?? 0}</div>
+              <div className="text-xs text-white/40">Blocked</div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>

@@ -3,12 +3,14 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { ChevronLeft, ChevronRight, Shield, TrendingUp, Cpu, ReceiptText } from "lucide-react";
 import { AnimatedNumber, GlassCard, SectionTitle } from "../components/ui";
 
+interface Round { type: string; amount: string; timeline: string; fit: string; action: string; }
 interface FundData {
   mrr: number; arr: number; sub_count: number;
   containers: number; receipts: number; chain_breaks: number;
   nist_score: number; hipaa_score: number;
   use_of_funds: { label: string; pct: number; color: string }[];
   quotes: { text: string; author: string }[];
+  fundraise_2026?: { recommended_rounds: Round[]; market_context: string; grant_programs: string[]; investor_thesis: string; };
   error?: string;
 }
 
@@ -109,6 +111,40 @@ export default function Fundraise() {
           )}
         </GlassCard>
       </div>
+
+      {data.fundraise_2026 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-white">2026 Fundraising Roadmap</h2>
+          <p className="text-sm text-slate-400 leading-relaxed">{data.fundraise_2026.market_context}</p>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {data.fundraise_2026.recommended_rounds.map((r) => (
+              <div key={r.type} className="glass rounded-xl p-4 border border-white/[0.07] hover:border-cyan-500/30 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-sm font-semibold text-cyan-300">{r.type}</div>
+                  <div className="shrink-0 text-xs font-bold text-emerald-400 bg-emerald-400/10 rounded-full px-2 py-0.5">{r.amount}</div>
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">{r.timeline}</div>
+                <p className="mt-2 text-xs text-slate-300 leading-relaxed">{r.fit}</p>
+                <p className="mt-2 text-[11px] text-cyan-400/80 leading-relaxed border-t border-white/[0.06] pt-2">→ {r.action}</p>
+              </div>
+            ))}
+          </div>
+          {data.fundraise_2026.grant_programs && (
+            <div className="glass rounded-xl p-5 border border-white/[0.07]">
+              <div className="text-sm font-semibold text-purple-300 mb-3">Grant Programs Available</div>
+              <ul className="space-y-1.5">
+                {data.fundraise_2026.grant_programs.map((g) => (
+                  <li key={g} className="text-xs text-slate-300 flex items-start gap-2"><span className="text-emerald-400 mt-0.5">✓</span>{g}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="glass rounded-xl p-5 border border-purple-500/20">
+            <div className="text-sm font-semibold text-purple-300 mb-2">Investor Thesis</div>
+            <p className="text-xs text-slate-300 leading-relaxed">{data.fundraise_2026.investor_thesis}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

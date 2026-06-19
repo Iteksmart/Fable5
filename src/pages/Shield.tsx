@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -344,6 +345,275 @@ export default function ShieldPage() {
           </div>
         </div>
       </div>
+    {/* ── SIE Security Intelligence Engine ──────────────────────── */}
+    <SIESection />
+    </div>
+  );
+}
+
+// ── SIE Section Component ─────────────────────────────────────────────────────
+function SIESection() {
+  const [sieTab, setSieTab] = React.useState<'overview'|'queue'|'findings'|'journal'|'run'>('overview');
+  const [health, setHealth] = React.useState<any>(null);
+  const [status, setStatus] = React.useState<any>(null);
+  const [queue, setQueue] = React.useState<any[]>([]);
+  const [findings, setFindings] = React.useState<any[]>([]);
+  const [journal, setJournal] = React.useState<any[]>([]);
+  const [runStatus, setRunStatus] = React.useState<any>(null);
+  const [running, setRunning] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function sieFetch(path: string) {
+    const r = await fetch('/api/sie' + path);
+    if (!r.ok) throw new Error(r.statusText);
+    return r.json();
+  }
+
+  async function loadOverview() {
+    try {
+      const [h, s] = await Promise.all([
+        sieFetch('/health-score'),
+        sieFetch('/status'),
+      ]);
+      setHealth(h); setStatus(s);
+    } catch {}
+  }
+
+  async function loadQueue() {
+    try { const d = await sieFetch('/queue'); setQueue(d.items || []); } catch {}
+  }
+
+  async function loadFindings() {
+    try { const d = await sieFetch('/findings?date=' + today); setFindings(d.findings || []); } catch {}
+  }
+
+  async function loadJournal() {
+    try { const d = await sieFetch('/journal'); setJournal(d.entries || []); } catch {}
+  }
+
+  async function loadRunStatus() {
+    try { const d = await sieFetch('/run/status'); setRunStatus(d); } catch {}
+  }
+
+  React.useEffect(() => {
+    Promise.all([loadOverview(), loadQueue(), loadRunStatus()]).finally(() => setLoading(false));
+    const t = setInterval(loadOverview, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  React.useEffect(() => {
+    if (sieTab === 'findings') loadFindings();
+    if (sieTab === 'journal') loadJournal();
+  }, [sieTab]);
+
+  async function triggerRun(mode: string) {
+    setRunning(true);
+    try {
+      await fetch('/api/sie/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) });
+      setTimeout(loadRunStatus, 2000);
+    } catch {}
+    setRunning(false);
+  }
+
+  async function approveItem(idx: number) {
+    await fetch('/api/sie/queue/approve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ index: idx }) });
+    loadQueue();
+  }
+
+  const score = health?.score ?? 0;
+  const grade = health?.grade ?? '—';
+  const scoreColor = score >= 75 ? '#00E5A0' : score >= 50 ? '#FB923C' : '#FF4B4B';
+  const SEV_COLOR: Record<number, string> = { 5: '#FF4B4B', 4: '#FB923C', 3: '#FDE68A', 2: '#60A5FA', 1: '#94A3B8' };
+
+  const TABS = [
+    { id: 'overview', label: '📊 Overview' },
+    { id: 'queue', label: `🔧 Queue (${queue.length})` },
+    { id: 'findings', label: '🔍 Findings' },
+    { id: 'journal', label: '📋 Journal' },
+    { id: 'run', label: '▶ Run' },
+  ] as const;
+
+  return (
+    <div style={{ marginTop: 32, padding: '0 0' }}>
+      {/* SIE Header */}
+      <div className="flex items-center gap-3 mb-4 px-1">
+        <div style={{ width: 3, height: 32, background: 'linear-gradient(#FF4B4B,#FB923C)', borderRadius: 2 }} />
+        <div>
+          <h2 className="text-base font-bold text-white">Security Intelligence Engine (SIE)</h2>
+          <p className="text-xs text-slate-500">Automated posture scanning, auto-fix queue, findings &amp; journal</p>
+        </div>
+        <button onClick={loadOverview} className="ml-auto text-xs text-slate-400 hover:text-white flex items-center gap-1">
+          <RefreshCw size={12}/> Refresh
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-4 border-b border-white/5 pb-3">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setSieTab(t.id as any)} style={{
+            padding: '5px 14px', borderRadius: 8, fontSize: 12,
+            background: sieTab === t.id ? 'rgba(255,75,75,0.15)' : 'transparent',
+            border: sieTab === t.id ? '1px solid rgba(255,75,75,0.3)' : '1px solid transparent',
+            color: sieTab === t.id ? '#FCA5A5' : '#94A3B8',
+            cursor: 'pointer', fontWeight: sieTab === t.id ? 600 : 400,
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Overview Tab */}
+      {sieTab === 'overview' && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {/* Health Score */}
+          <div className="glass rounded-2xl p-5" style={{ minWidth: 180, flex: '0 0 auto', textAlign: 'center' }}>
+            <div style={{ fontSize: 56, fontWeight: 800, color: scoreColor, lineHeight: 1 }}>{loading ? '—' : score}</div>
+            <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>Grade {grade} · Health Score</div>
+            {health?.delta != null && (
+              <div style={{ fontSize: 11, marginTop: 4, color: health.delta >= 0 ? '#00E5A0' : '#FF4B4B' }}>
+                {health.delta >= 0 ? '▲ +' : '▼ '}{health.delta} vs prev
+              </div>
+            )}
+          </div>
+
+          {/* Status Cards */}
+          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            {[
+              { label: 'Gate', value: status?.gate_live ? 'LIVE' : 'OFF', color: status?.gate_live ? '#00E5A0' : '#FF4B4B' },
+              { label: 'Queue Items', value: status?.queue_count ?? '—', color: '#60A5FA' },
+              { label: 'Last Run', value: status?.last_run?.run_ts ? new Date(status.last_run.run_ts).toLocaleString() : '—', color: '#94A3B8' },
+              { label: 'Run Active', value: status?.run_active ? 'YES' : 'idle', color: status?.run_active ? '#FDE68A' : '#475569' },
+              { label: 'Sev-5 Open', value: health?.components?.open_sev5?.count ?? '—', color: '#FF4B4B' },
+              { label: 'Outdated Pkgs', value: health?.components?.packages_outdated?.count ?? '—', color: '#FB923C' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="glass rounded-xl p-4" style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color }}>{String(value)}</div>
+                <div style={{ fontSize: 11, color: '#64748B', marginTop: 3 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Queue Tab */}
+      {sieTab === 'queue' && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/5 text-xs text-slate-400">
+            {queue.length} items pending · auto-fix queue
+          </div>
+          {queue.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-500">Queue is empty — no pending fixes</div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              {queue.map((item, i) => (
+                <div key={i} className="flex items-start gap-3 px-5 py-3 border-b border-white/5 hover:bg-white/[0.02]">
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
+                    background: (SEV_COLOR[item.severity] || '#94A3B8') + '22',
+                    color: SEV_COLOR[item.severity] || '#94A3B8',
+                    border: '1px solid ' + (SEV_COLOR[item.severity] || '#94A3B8') + '44',
+                    flexShrink: 0,
+                  }}>S{item.severity}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: '#CBD5E1', fontWeight: 500 }}>{item.detector || '—'}</div>
+                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, wordBreak: 'break-all' }}>
+                      {item.path || ''} {item.detail ? '· ' + String(item.detail).slice(0, 100) : ''}
+                    </div>
+                  </div>
+                  {item.fix_class === 'safe_auto' && (
+                    <button onClick={() => approveItem(i)} style={{
+                      fontSize: 11, padding: '3px 10px', borderRadius: 6,
+                      background: '#00E5A015', color: '#00E5A0', border: '1px solid #00E5A030',
+                      cursor: 'pointer', flexShrink: 0,
+                    }}>Approve</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Findings Tab */}
+      {sieTab === 'findings' && (
+        <div className="glass rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/5 text-xs text-slate-400">
+            Findings for {today} · {findings.length} total
+          </div>
+          {findings.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-500">No findings for today</div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              {findings.slice(0, 100).map((f, i) => (
+                <div key={i} className="flex items-start gap-3 px-5 py-3 border-b border-white/5">
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6,
+                    background: (SEV_COLOR[f.severity] || '#94A3B8') + '22',
+                    color: SEV_COLOR[f.severity] || '#94A3B8',
+                    border: '1px solid ' + (SEV_COLOR[f.severity] || '#94A3B8') + '44',
+                    flexShrink: 0,
+                  }}>S{f.severity}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: '#CBD5E1' }}>{f.detector || f.rule || '—'}</div>
+                    <div style={{ fontSize: 11, color: '#64748B', wordBreak: 'break-all' }}>{f.path || ''}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Journal Tab */}
+      {sieTab === 'journal' && (
+        <div className="glass rounded-2xl overflow-hidden">
+          {journal.length === 0 ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-500">No journal entries</div>
+          ) : (
+            <div style={{ maxHeight: 440, overflowY: 'auto', fontFamily: 'monospace' }}>
+              {journal.slice(0, 200).map((e: any, i) => (
+                <div key={i} className="flex gap-3 px-5 py-2 border-b border-white/5 text-xs">
+                  <span style={{ color: '#475569', flexShrink: 0 }}>{String(e.ts || e.timestamp || '').slice(0, 19).replace('T', ' ')}</span>
+                  <span style={{ color: e.level === 'ERR' ? '#FF4B4B' : e.level === 'WARN' ? '#FB923C' : '#00E5A0', flexShrink: 0 }}>{e.level || 'INFO'}</span>
+                  <span style={{ color: '#CBD5E1' }}>{e.msg || e.message || JSON.stringify(e)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Run Tab */}
+      {sieTab === 'run' && (
+        <div className="glass rounded-2xl p-5">
+          <div className="text-sm font-semibold text-white mb-4">Trigger SIE Scan</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+            {[
+              { mode: 'quick', label: '⚡ Quick Scan', color: '#60A5FA' },
+              { mode: 'full', label: '🔍 Full Scan', color: '#A78BFA' },
+              { mode: 'auto', label: '🤖 Auto-Fix', color: '#00E5A0' },
+            ].map(({ mode, label, color }) => (
+              <button key={mode} onClick={() => triggerRun(mode)} disabled={running} style={{
+                padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                background: color + '15', color, border: '1px solid ' + color + '40',
+                cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.6 : 1,
+              }}>{label}</button>
+            ))}
+          </div>
+          {runStatus && (
+            <div style={{ background: '#1E293B', borderRadius: 8, padding: 14 }}>
+              <div style={{ fontSize: 12, color: '#94A3B8', marginBottom: 8 }}>Run Status</div>
+              <div style={{ fontSize: 13, color: runStatus.active ? '#00E5A0' : '#475569' }}>
+                {runStatus.active ? '● ' + (runStatus.label || 'Running…') : '○ No active run'}
+              </div>
+              {runStatus.tail && runStatus.tail.length > 0 && (
+                <div style={{ marginTop: 10, fontFamily: 'monospace', fontSize: 11, color: '#64748B', maxHeight: 180, overflowY: 'auto' }}>
+                  {runStatus.tail.map((l: string, i: number) => <div key={i}>{l}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

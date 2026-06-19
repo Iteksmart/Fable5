@@ -2,6 +2,11 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
+  ShieldAlert,
+  Store,
+  BookOpen,
+  FolderOpen,
+  Brain as BrainIcon,
   Target,
   LayoutDashboard,
   BrainCircuit,
@@ -28,6 +33,11 @@ import {
   Wand2,
   Settings,
   Building2,
+  FileText,
+  ShieldAlert,
+  Store,
+  BookOpen,
+  FolderOpen,
 } from "lucide-react";
 import clsx from "clsx";
 import { Background, NeonButton, StatusDot } from "./ui";
@@ -54,6 +64,12 @@ const NAV = [
   { to: "/approvals", label: "Approvals", icon: CheckSquare, kbd: "P" },
   { to: "/ai-studio", label: "AI Studio", icon: Wand2, kbd: "I" },
   { to: "/admin", label: "Admin", icon: Settings, kbd: "G" },
+  { to: "/reports", label: "Reports", icon: FileText, kbd: "R" },
+  { to: "/brain", label: "Agent Brain", icon: BrainIcon, kbd: "B" },
+  { to: "/policies", label: "Guardrails", icon: ShieldAlert, kbd: "G" },
+  { to: "/agent-store", label: "Agent Store", icon: Store, kbd: "E" },
+  { to: "/docs", label: "AI Docs", icon: FolderOpen, kbd: "O" },
+  { to: "/kb", label: "Knowledge Base", icon: BookOpen, kbd: "K" },
 ];
 
 export default function Layout() {
@@ -62,6 +78,15 @@ export default function Layout() {
   const [tunnel, setTunnel] = useState<TunnelInfo | null>(null);
   const [clock, setClock] = useState(new Date());
   const [selftest, setSelftest] = useState<{ ok: boolean } | null>(null);
+
+  const [pendingCount, setPendingCount] = useState(0);
+  useEffect(() => {
+    const fetchCount = () => fetch("/api/agentos/approvals/count").then(r=>r.json()).then(d=>setPendingCount(d.pending||0)).catch(()=>{});
+    fetchCount();
+    const t = setInterval(fetchCount, 30000);
+    return () => clearInterval(t);
+  }, []);
+
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -130,6 +155,9 @@ export default function Layout() {
                   )}
                   <Icon size={16} className={clsx("relative z-10 shrink-0", isActive && "text-cyan-300")} />
                   <span className="relative z-10 flex-1 truncate">{label}</span>
+                  {to === "/approvals" && pendingCount > 0 && (
+                    <span style={{background:"#FF4B4B",borderRadius:"50%",minWidth:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff",padding:"0 4px"}}>{pendingCount}</span>
+                  )}
                   <kbd className="relative z-10 rounded border border-white/10 px-1 py-0.5 text-[9px] text-slate-500 group-hover:text-slate-400">
                     ⌘{kbd}
                   </kbd>

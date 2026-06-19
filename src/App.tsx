@@ -21,6 +21,12 @@ import ApprovalsPage from "./pages/Approvals";
 import AiStudioPage from "./pages/AiStudio";
 import AdminPage from "./pages/Admin";
 import LeadsPage from "./pages/Leads";
+import ReportsPage from "./pages/Reports";
+import BrainPage from "./pages/Brain";
+import PoliciesPage from "./pages/Policies";
+import AgentStorePage from "./pages/AgentStore";
+import DocsPage from "./pages/Docs";
+import KnowledgeBasePage from "./pages/KnowledgeBase";
 
 export default function App() {
   return (
@@ -46,7 +52,13 @@ export default function App() {
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/ai-studio" element={<AiStudioPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/brain" element={<BrainPage />} />
+        <Route path="/policies" element={<PoliciesPage />} />
+        <Route path="/agent-store" element={<AgentStorePage />} />
         <Route path="/leads" element={<LeadsPage />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/kb" element={<KnowledgeBasePage />} />
       </Route>
     </Routes>
   );

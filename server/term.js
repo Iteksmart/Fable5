@@ -32,7 +32,8 @@ export function attachTerminal(ws, query) {
   let cmd, args;
   if (mode === "ssh") {
     cmd = "ssh";
-    args = ["-tt", SSH_USER ? `${SSH_USER}@${SSH_TARGET}` : SSH_TARGET];
+    args = ["-tt", "-o", "ServerAliveInterval=25", "-o", "ServerAliveCountMax=10",
+            SSH_USER ? `${SSH_USER}@${SSH_TARGET}` : SSH_TARGET];
   } else {
     cmd = SHELL;
     args = [];
@@ -58,6 +59,7 @@ export function attachTerminal(ws, query) {
         const msg = JSON.parse(raw.toString());
         if (msg.type === "input") proc.write(msg.data);
         else if (msg.type === "resize") proc.resize(msg.cols, msg.rows);
+        else if (msg.type === "ping") ws.isAlive = true;
       } catch {
         proc.write(raw.toString());
       }
@@ -78,6 +80,7 @@ export function attachTerminal(ws, query) {
       try {
         const msg = JSON.parse(raw.toString());
         if (msg.type === "input") proc.stdin.write(msg.data);
+        else if (msg.type === "ping") ws.isAlive = true;
       } catch {
         proc.stdin.write(raw.toString());
       }

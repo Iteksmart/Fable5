@@ -55,6 +55,17 @@ const SNIPPETS: { label: string; cmd: string }[] = [
   { label: "top procs", cmd: "ps aux --sort=-%cpu | head -10\n" },
 ];
 
+// Detach all WS handlers and close before discarding — prevents the old onclose
+// from firing with intentionalClose=false and scheduling an infinite reconnect loop.
+function detachAndClose(ws: WebSocket | null) {
+  if (!ws) return;
+  ws.onopen = null;
+  ws.onmessage = null;
+  ws.onerror = null;
+  ws.onclose = null;
+  ws.close();
+}
+
 export default function TerminalPage() {
   const [params, setParams] = useSearchParams();
   const mode = (params.get("mode") as Mode) || "ssh";
@@ -63,10 +74,23 @@ export default function TerminalPage() {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepAliveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intentionalClose = useRef(false);
 
   const connect = useCallback(() => {
-    wsRef.current?.close();
+    intentionalClose.current = false;
+    if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+    if (keepAliveTimer.current) { clearInterval(keepAliveTimer.current); keepAliveTimer.current = null; }
+
+    // Detach handlers BEFORE closing the old socket so its onclose cannot
+    // schedule another reconnect while we are already starting a new one.
+    const oldWs = wsRef.current;
+    wsRef.current = null;
+    detachAndClose(oldWs);
+
     termRef.current?.dispose();
+    termRef.current = null;
     if (!hostRef.current) return;
 
     const term = new Terminal({
@@ -80,7 +104,11 @@ export default function TerminalPage() {
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon());
+    // Require Ctrl/Cmd+click to open links — plain clicks on text should never
+    // navigate away and drop the terminal session.
+    term.loadAddon(new WebLinksAddon((event: MouseEvent, uri: string) => {
+      if (event.ctrlKey || event.metaKey) window.open(uri, "_blank");
+    }));
     term.open(hostRef.current);
     fit.fit();
     termRef.current = term;
@@ -97,10 +125,17 @@ export default function TerminalPage() {
     );
     wsRef.current = ws;
 
-    ws.onopen = () => setState("connected");
+    ws.onopen = () => {
+      setState("connected");
+      // Application-level keep-alive: sends a ping frame every 20s so the
+      // Cloudflare tunnel and nginx never see the WebSocket as idle.
+      keepAliveTimer.current = setInterval(() => {
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+      }, 20_000);
+    };
+
     ws.onmessage = (ev) => {
       const data = typeof ev.data === "string" ? ev.data : "";
-      // exit frames come through as JSON
       if (data.startsWith('{"type":"exit"')) {
         term.writeln("\r\n\x1b[90m[session ended]\x1b[0m");
         setState("closed");
@@ -108,7 +143,17 @@ export default function TerminalPage() {
       }
       term.write(data);
     };
-    ws.onclose = () => setState((s) => (s === "connected" || s === "connecting" ? "closed" : s));
+
+    ws.onclose = () => {
+      if (keepAliveTimer.current) { clearInterval(keepAliveTimer.current); keepAliveTimer.current = null; }
+      setState((s) => (s === "connected" || s === "connecting" ? "closed" : s));
+      if (!intentionalClose.current) {
+        reconnectTimer.current = setTimeout(() => {
+          if (!intentionalClose.current) connect();
+        }, 3000);
+      }
+    };
+
     ws.onerror = () => setState("closed");
 
     term.onData((d) => {
@@ -126,11 +171,35 @@ export default function TerminalPage() {
   useEffect(() => {
     const cleanup = connect();
     return () => {
+      intentionalClose.current = true;
+      if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+      if (keepAliveTimer.current) { clearInterval(keepAliveTimer.current); keepAliveTimer.current = null; }
       cleanup?.();
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      wsRef.current = null;
+      detachAndClose(ws);
       termRef.current?.dispose();
       termRef.current = null;
     };
+  }, [connect]);
+
+  // Reconnect immediately when the user switches back to this tab instead of
+  // waiting for the 3s timer — the session was likely dropped while hidden.
+  useEffect(() => {
+    const onVisChange = () => {
+      if (document.visibilityState === "visible") {
+        const ws = wsRef.current;
+        if (
+          !intentionalClose.current &&
+          (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)
+        ) {
+          if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+          connect();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
   }, [connect]);
 
   const sendSnippet = (cmd: string) => {

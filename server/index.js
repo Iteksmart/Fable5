@@ -15,6 +15,11 @@ import { getMetrics, probeServices, tunnelStatus } from "./metrics.js";
 import { attachTerminal, ptyAvailable } from "./term.js";
 
 import { registerLiveRoutes } from "./live_routes.js";
+import { registerDocgenRoutes } from "./docgen_routes.js";
+import { registerReportRoutes } from "./reports.js";
+import { registerAgentOSRoutes } from "./agentos_routes.js";
+import { registerIntegrationRoutes } from "./integrations_routes.js";
+import { registerIntegrationRoutesExt } from "./integrations_routes_ext.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 8443;
 const HOST = process.env.HOST || "127.0.0.1";
@@ -109,8 +114,72 @@ for (const col of COLLECTIONS) {
   });
 }
 
+
+// Sprint 8 — proxy /api/v1/* to itechsmart-api :8091
+const APIGW_V1 = "http://172.18.0.1:8091";
+app.all("/api/v1/*", async (req, res) => {
+  try {
+    const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+    const target = APIGW_V1 + req.path.slice(4) + qs;
+    const init = { method: req.method, headers: { "content-type": "application/json" } };
+    if (req.method !== "GET" && req.method !== "DELETE") {
+      init.body = JSON.stringify(req.body);
+    }
+    const upstream = await fetch(target, { ...init, signal: AbortSignal.timeout(30000) });
+    const ct = upstream.headers.get("content-type") || "";
+    res.status(upstream.status);
+    if (ct.includes("text/event-stream")) {
+      res.setHeader("content-type", "text/event-stream");
+      res.setHeader("cache-control", "no-cache");
+      res.setHeader("connection", "keep-alive");
+      const reader = upstream.body.getReader();
+      req.on("close", () => reader.cancel().catch(() => {}));
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done || res.writableEnded) { if (!res.writableEnded) res.end(); return; }
+        res.write(value);
+        pump();
+      };
+      pump();
+    } else {
+      res.send(await upstream.text());
+    }
+  } catch (e) {
+    if (!res.headersSent) res.status(502).json({ error: e.message });
+  }
+});
+
+
+// Agent Brain API proxy — /api/brain-proxy/* → :8221
+const BRAIN_API = "http://127.0.0.1:8221";
+app.all("/api/brain-proxy/*", async (req, res) => {
+  try {
+    const brainPath = req.url.replace("/api/brain-proxy", "");
+    const target = BRAIN_API + brainPath;
+    const init = { method: req.method, headers: { "content-type": "application/json" } };
+    if (req.method !== "GET" && req.method !== "DELETE" && req.body) {
+      init.body = JSON.stringify(req.body);
+    }
+    const upstream = await fetch(target, { ...init, signal: AbortSignal.timeout(30000) });
+    const ct = upstream.headers.get("content-type") || "";
+    res.status(upstream.status);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (ct.includes("application/json")) {
+      res.setHeader("content-type", "application/json");
+    }
+    res.send(await upstream.text());
+  } catch (e) {
+    if (!res.headersSent) res.status(502).json({ error: e.message });
+  }
+});
+
 // ---------- live data (Sprint 7) ----------
 registerLiveRoutes(app, getSecret);
+registerDocgenRoutes(app, getSecret);
+await registerReportRoutes(app);
+registerAgentOSRoutes(app, getSecret, store);
+registerIntegrationRoutesExt(app, getSecret);
+registerIntegrationRoutes(app, getSecret);
 
 // ---------- static UI (production) ----------
 const dist = path.join(__dirname, "..", "dist");
@@ -129,6 +198,23 @@ app.use((err, req, res, next) => {
 // ---------- websockets ----------
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
+
+// 25-second ping keeps Cloudflare's 100-second idle WebSocket timeout from
+// dropping live terminal sessions.  The browser WebSocket API auto-responds
+// to WS pings with pongs at the protocol layer — no client-side code needed.
+const PING_MS = 25_000;
+const pingInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, PING_MS);
+wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+});
+server.on('close', () => clearInterval(pingInterval));
 
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, "http://x");

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Download, FileText, Shield } from "lucide-react";
 import clsx from "clsx";
 import { GlassCard, SectionTitle } from "../components/ui";
@@ -19,17 +19,31 @@ function ScoreBar({ score, max, color }: { score: number; max: number; color: st
     <div>
       <div className="mb-1.5 flex justify-between text-[11px] text-slate-400"><span>{score}/{max}</span><span>{pct}%</span></div>
       <div className="h-2 overflow-hidden rounded-full bg-white/5">
-        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: pct + '%', background: color }} />
       </div>
     </div>
   );
 }
 
+
 export default function Compliance() {
   const [data, setData] = useState<CompData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [alertchainData, setAlertchainData] = useState<any>(null);
+  const [proboData, setProboData] = useState<any>(null);
+
+  // Integration data
+  const [integrations, setIntegrations] = React.useState<any>(null)
+  React.useEffect(() => {
+    fetch('/api/v1/integrations/all')
+      .then(r => r.json())
+      .then(setIntegrations)
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
+    fetch("/api/integrations/alertchain/decisions").then(r=>r.ok?r.json():null).then(d=>setAlertchainData(d)).catch(()=>{});
+    fetch("/api/integrations/probo/summary").then(r=>r.ok?r.json():null).then(d=>setProboData(d)).catch(()=>{});
     fetch("/api/compliance").then((r) => r.json()).then(setData).catch(() => setData({ error: "fetch failed" } as CompData)).finally(() => setLoading(false));
   }, []);
 
@@ -135,6 +149,61 @@ export default function Compliance() {
           </div>
         </GlassCard>
       )}
+
+
+        {/* -- Integration Panels ------------------------------------------------ */}
+        {integrations && (
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {/* Probo GRC */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-bold text-sm">Probo GRC</span>
+                <a href="https://comp.itechsmart.dev" target="_blank"
+                   rel="noopener" className="text-xs text-cyan-400 hover:underline">Open -&gt;</a>
+              </div>
+              <div className="flex gap-6">
+                {[["SOC2", integrations.probo?.soc2 ?? 96],
+                  ["NIST CSF", integrations.probo?.nist ?? 96],
+                  ["HIPAA", integrations.probo?.hipaa ?? 100]].map(([lbl, val]: any) => (
+                  <div key={lbl} className="text-center">
+                    <div className="text-2xl font-black text-cyan-400">{val}</div>
+                    <div className="text-xs text-white/40">{lbl}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* AlertChain OPA */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-bold text-sm">AlertChain -- OPA Policy Gate</span>
+                <a href="https://alertchain.itechsmart.dev" target="_blank"
+                   rel="noopener" className="text-xs text-cyan-400 hover:underline">Open -&gt;</a>
+              </div>
+              <div className="flex gap-6 mb-3">
+                <div className="text-center">
+                  <div className="text-2xl font-black text-emerald-400">{integrations.alertchain?.allowed ?? 0}</div>
+                  <div className="text-xs text-white/40">Allowed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-black text-red-400">{integrations.alertchain?.denied ?? 0}</div>
+                  <div className="text-xs text-white/40">Denied</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-black text-white">{integrations.alertchain?.total_today ?? 0}</div>
+                  <div className="text-xs text-white/40">Total today</div>
+                </div>
+              </div>
+              {(integrations.alertchain?.top_deny_reasons ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {integrations.alertchain.top_deny_reasons.map((r: string, i: number) => (
+                    <span key={i} className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 rounded px-2 py-0.5">{r}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
     </div>
   );
 }

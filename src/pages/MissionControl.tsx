@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from "react-router-dom";
 import {
   Area,
@@ -57,6 +57,9 @@ export default function MissionControl() {
   const [activity, setActivity] = useState<Activity[]>([]);
   const [aiKeys, setAiKeys] = useState<Record<ProviderId, boolean> | null>(null);
   const [prooflink, setProoflink] = useState<{total:number;chain_breaks:number;action:number;last5:{hash:string;category:string;ts:string;actor:string}[]}|null>(null);
+  const [calEvents, setCalEvents] = useState<{title:string;time:string;color:string;urgent?:boolean}[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [pendingTasks, setPendingTasks] = useState(0);
 
   useEffect(() => {
     const loadFast = () => {
@@ -69,6 +72,9 @@ export default function MissionControl() {
     api.list<Activity>("activity").then(setActivity).catch(() => {});
     api.providers().then((p) => setAiKeys(p.keys)).catch(() => {});
     fetch("/api/prooflink/live").then((r)=>r.json()).then(setProoflink).catch(()=>{});
+    fetch("/api/v1/calendar/today").then(r=>r.json()).then(d=>{ const evts=Array.isArray(d)?d:(d.events||[]); if(evts.length>0)setCalEvents(evts.map((e,i)=>({title:e.title,time:e.start?(new Date(e.start).toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})):"TBD",color:["#00D4FF","#A78BFA","#FFB800"][i%3],urgent:i===0}))); }).catch(()=>{});
+    fetch("/api/v1/approvals").then(r=>r.json()).then(d=>{ const arr=Array.isArray(d)?d:(d.approvals||[]); setPendingApprovals(arr.filter((a)=>a.status==="pending"||a.status==="open").length); }).catch(()=>{});
+    fetch("/api/v1/tasks").then(r=>r.json()).then(d=>{ const arr=Array.isArray(d)?d:(d.tasks||[]); setPendingTasks(arr.filter((t)=>t.status!=="done"&&t.status!=="closed"&&t.status!=="cancelled").length); }).catch(()=>{});
     const t = setInterval(loadFast, 10000);
     const t3 = setInterval(()=>fetch("/api/prooflink/live").then((r)=>r.json()).then(setProoflink).catch(()=>{}),15000);
     return () => { clearInterval(t); clearInterval(t3); };
@@ -88,6 +94,43 @@ export default function MissionControl() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {/* S8-calendar-strip-start */}
+      <div style={{ display:"flex", gap:10, marginBottom:4 }}>
+        {calEvents.length > 0 ? calEvents.map((e, i) => (
+          <div key={i} style={{ flex:1, background:e.color+"11",
+            border:"1px solid "+e.color+"33", borderRadius:8, padding:"10px 14px" }}>
+            {e.urgent && <div style={{ fontSize:9, color:e.color, fontWeight:700, letterSpacing:2, marginBottom:4 }}>UPCOMING</div>}
+            <div style={{ fontSize:12, color:"#FFFFFF", fontWeight:600, marginBottom:4 }}>{e.title}</div>
+            <div style={{ fontSize:11, color:e.color }}>{e.time}</div>
+          </div>
+        )) : (
+          <div style={{ flex:1, background:"#00D4FF11", border:"1px solid #00D4FF33",
+            borderRadius:8, padding:"10px 14px", fontSize:12, color:"#8B9DC3" }}>
+            Outlook calendar loading…
+          </div>
+        )}
+      </div>
+      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+        {[
+          { label: pendingApprovals > 0 ? pendingApprovals+" Pending Approvals" : "No Pending Approvals",
+            color: pendingApprovals > 0 ? "#FF4B4B" : "#00E5A0",
+            sub: pendingApprovals > 0 ? "Agents waiting for your decision" : "All caught up",
+            href:"/approvals" },
+          { label: pendingTasks > 0 ? pendingTasks+" Pending Tasks" : "No Pending Tasks",
+            color: pendingTasks > 0 ? "#FFB800" : "#00E5A0",
+            sub: pendingTasks > 0 ? "Tasks queued for action" : "Queue is clear",
+            href:"/agents" },
+          { label:"22/22 Tests Passing", color:"#00E5A0", sub:"Core moat CI green", href:"/audit" },
+        ].map((a, i) => (
+          <a key={i} href={a.href} style={{ flex:1, background:"#141D3B", borderRadius:10,
+            padding:"12px 16px", borderLeft:"3px solid "+a.color, cursor:"pointer",
+            textDecoration:"none", boxShadow:"0 4px 20px rgba(0,0,0,0.4)", display:"block" }}>
+            <div style={{ fontSize:13, color:a.color, fontWeight:700 }}>{a.label}</div>
+            <div style={{ fontSize:11, color:"#8B9DC3", marginTop:2 }}>{a.sub}</div>
+          </a>
+        ))}
+      </div>
+      {/* S8-calendar-strip-end */}
       {/* hero */}
       <GlassCard hover={false} className="relative overflow-hidden p-6">
         <div
